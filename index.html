@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Deep Research Prompt Adapter</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent-openai: #10a37f;
+            --accent-gemini: #4285f4;
+            --accent-claude: #d97706;
+            --accent-deepseek: #8b5cf6;
+            --accent-qwen: #ef4444;
+            --border-color: #475569;
+            --success-color: #22c55e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .input-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .input-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            font-size: 1.1rem;
+        }
+
+        #rawPrompt {
+            width: 100%;
+            min-height: 150px;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 1rem;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        #rawPrompt:focus {
+            outline: none;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+        }
+
+        #rawPrompt::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .generate-btn {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            border: none;
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+        }
+
+        .generate-btn:active {
+            transform: translateY(0);
+        }
+
+        .model-toggles {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .model-toggles span {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .toggle-btn {
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn.active {
+            border-color: currentColor;
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+        }
+
+        .toggle-btn[data-model="openai"].active { color: var(--accent-openai); border-color: var(--accent-openai); }
+        .toggle-btn[data-model="gemini"].active { color: var(--accent-gemini); border-color: var(--accent-gemini); }
+        .toggle-btn[data-model="claude"].active { color: var(--accent-claude); border-color: var(--accent-claude); }
+        .toggle-btn[data-model="deepseek"].active { color: var(--accent-deepseek); border-color: var(--accent-deepseek); }
+        .toggle-btn[data-model="qwen"].active { color: var(--accent-qwen); border-color: var(--accent-qwen); }
+
+        .output-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 1rem 1.5rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -1px;
+        }
+
+        .tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tab.active {
+            color: var(--text-primary);
+            border-bottom-color: currentColor;
+        }
+
+        .tab[data-model="openai"].active { color: var(--accent-openai); }
+        .tab[data-model="gemini"].active { color: var(--accent-gemini); }
+        .tab[data-model="claude"].active { color: var(--accent-claude); }
+        .tab[data-model="deepseek"].active { color: var(--accent-deepseek); }
+        .tab[data-model="qwen"].active { color: var(--accent-qwen); }
+
+        .tab-content {
+            display: none;
+            padding: 1.5rem;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .model-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .model-info h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .model-info .archetype {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-style: italic;
+        }
+
+        .copy-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1rem;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: var(--bg-primary);
+            border-color: var(--text-secondary);
+        }
+
+        .copy-btn.copied {
+            background: var(--success-color);
+            border-color: var(--success-color);
+            color: white;
+        }
+
+        .prompt-output {
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1.25rem;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid var(--border-color);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .prompt-output:empty::before {
+            content: "Generate a prompt to see the optimized output here...";
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .transformation-note {
+            margin-top: 1rem;
+            padding: 0.75rem 1rem;
+            background: rgba(96, 165, 250, 0.1);
+            border-left: 3px solid #60a5fa;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .transformation-note strong {
+            color: var(--text-primary);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 1.75rem;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .model-toggles {
+                justify-content: center;
+            }
+
+            .tabs {
+                justify-content: flex-start;
+            }
+
+            .tab {
+                padding: 0.75rem 1rem;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Deep Research Prompt Adapter</h1>
+            <p class="subtitle">Transform your research intent into model-optimized prompts for 2026's top AI systems</p>
+        </header>
+
+        <section class="input-section">
+            <label for="rawPrompt">Raw Research Prompt</label>
+            <textarea id="rawPrompt" placeholder="Enter your research intent here, e.g., 'Find the latest market trends for solid-state batteries' or 'Analyze the current state of quantum computing applications in drug discovery'"></textarea>
+            <div class="controls">
+                <button class="generate-btn" onclick="generatePrompts()">Generate Optimized Prompts</button>
+                <div class="model-toggles">
+                    <span>Target:</span>
+                    <button class="toggle-btn active" data-model="openai" onclick="toggleModel(this)">OpenAI</button>
+                    <button class="toggle-btn active" data-model="gemini" onclick="toggleModel(this)">Gemini</button>
+                    <button class="toggle-btn active" data-model="claude" onclick="toggleModel(this)">Claude</button>
+                    <button class="toggle-btn active" data-model="deepseek" onclick="toggleModel(this)">DeepSeek</button>
+                    <button class="toggle-btn active" data-model="qwen" onclick="toggleModel(this)">Qwen</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="output-section">
+            <div class="tabs">
+                <button class="tab active" data-model="openai" onclick="switchTab('openai')">OpenAI o3-DR</button>
+                <button class="tab" data-model="gemini" onclick="switchTab('gemini')">Gemini 3.0</button>
+                <button class="tab" data-model="claude" onclick="switchTab('claude')">Claude 4.5</button>
+                <button class="tab" data-model="deepseek" onclick="switchTab('deepseek')">DeepSeek R1</button>
+                <button class="tab" data-model="qwen" onclick="switchTab('qwen')">Qwen DR</button>
+            </div>
+
+            <!-- OpenAI Tab -->
+            <div class="tab-content active" id="content-openai">
+                <div class="model-header">
+                    <div class="model-info">
+                        <h3>OpenAI o3-DR</h3>
+                        <span class="archetype">The PhD Candidate</span>
+                    </div>
+                    <button class="copy-btn" onclick="copyToClipboard('openai')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                    </button>
+                </div>
+                <div class="prompt-output" id="output-openai"></div>
+                <div class="transformation-note">
+                    <strong>Transformation Focus:</strong> Reasoning Depth — Injects recursive logic, forces decomposition into sub-questions, and mandates primary source prioritization.
+                </div>
+            </div>
+
+            <!-- Gemini Tab -->
+            <div class="tab-content" id="content-gemini">
+                <div class="model-header">
+                    <div class="model-info">
+                        <h3>Google Gemini 3.0</h3>
+                        <span class="archetype">The Ecosystem Integrator</span>
+                    </div>
+                    <button class="copy-btn" onclick="copyToClipboard('gemini')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                    </button>
+                </div>
+                <div class="prompt-output" id="output-gemini"></div>
+                <div class="transformation-note">
+                    <strong>Transformation Focus:</strong> Data Merging — Enables "Glass-Box" control with multi-step planning and pause-for-review flags. Links web search with internal context.
+                </div>
+            </div>
+
+            <!-- Claude Tab -->
+            <div class="tab-content" id="content-claude">
+                <div class="model-header">
+                    <div class="model-info">
+                        <h3>Anthropic Claude 4.5</h3>
+                        <span class="archetype">The Collaborative Artisan</span>
+                    </div>
+                    <button class="copy-btn" onclick="copyToClipboard('claude')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                    </button>
+                </div>
+                <div class="prompt-output" id="output-claude"></div>
+                <div class="transformation-note">
+                    <strong>Transformation Focus:</strong> Precision & Style — Uses XML structural tags, emphasizes prose quality, citation fidelity, and anti-sycophancy instructions.
+                </div>
+            </div>
+
+            <!-- DeepSeek Tab -->
+            <div class="tab-content" id="content-deepseek">
+                <div class="model-header">
+                    <div class="model-info">
+                        <h3>DeepSeek R1</h3>
+                        <span class="archetype">The Logic Auditor</span>
+                    </div>
+                    <button class="copy-btn" onclick="copyToClipboard('deepseek')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                    </button>
+                </div>
+                <div class="prompt-output" id="output-deepseek"></div>
+                <div class="transformation-note">
+                    <strong>Transformation Focus:</strong> Mathematical/Logical Audit — Triggers first-principles Chain-of-Thought tracing and mandates cross-verification of quantitative data.
+                </div>
+            </div>
+
+            <!-- Qwen Tab -->
+            <div class="tab-content" id="content-qwen">
+                <div class="model-header">
+                    <div class="model-info">
+                        <h3>Qwen DeepResearch</h3>
+                        <span class="archetype">The Volume Heavyweight</span>
+                    </div>
+                    <button class="copy-btn" onclick="copyToClipboard('qwen')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                    </button>
+                </div>
+                <div class="prompt-output" id="output-qwen"></div>
+                <div class="transformation-note">
+                    <strong>Transformation Focus:</strong> Exhaustive Volume — Requests high word counts, triggers Advanced Mode, and enables specific output formats including research podcast summaries.
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>AI Deep Research Prompt Adapter &bull; Optimized for 2026 Model Architectures</p>
+        </footer>
+    </div>
+
+    <script>
+        // Model adapter configurations
+        const adapters = {
+            openai: {
+                name: "OpenAI o3-DR",
+                archetype: "The PhD Candidate",
+                transform: (rawPrompt) => {
+                    return `## Research Task
+
+Before beginning your search, I need you to follow a structured deep-research protocol.
+
+### Phase 1: Research Tree Construction
+Outline your complete research tree before searching. Decompose the following query into:
+1. Primary research questions (3-5 core questions)
+2. Secondary sub-questions branching from each primary question
+3. Tertiary verification questions for critical claims
+
+### Phase 2: Source Hierarchy Protocol
+When gathering information:
+- Prioritize primary sources (original research papers, official reports, first-hand data)
+- If you encounter an aggregator source, trace back to and verify the primary data source
+- Flag any source that cannot be traced to primary data
+- Use recursive decomposition to resolve conflicting data points between sources
+
+### Phase 3: Conflict Resolution
+For any contradictory information found:
+- Document both positions with their respective sources
+- Apply logical analysis to determine which has stronger evidentiary support
+- If unresolvable, present both with confidence assessments
+
+### Research Query:
+${rawPrompt}
+
+### Output Requirements:
+- Begin with your research tree structure
+- Present findings organized by primary question
+- Include a "Source Verification Log" section
+- Conclude with confidence ratings for each major finding`;
+                }
+            },
+            gemini: {
+                name: "Gemini 3.0",
+                archetype: "The Ecosystem Integrator",
+                transform: (rawPrompt) => {
+                    return `## Deep Research Request with Glass-Box Control
+
+### Step 1: Research Plan (PAUSE FOR CONFIRMATION)
+Before executing any searches, draft a comprehensive research plan that includes:
+- Key search queries you intend to use
+- Types of sources you'll prioritize
+- Potential data gaps you anticipate
+- Timeline scope for the research
+
+**[PAUSE HERE - Wait for my confirmation before proceeding to Step 2]**
+
+### Step 2: Multi-Source Integration Protocol
+Once confirmed, execute the research with these parameters:
+- Conduct searches across the top 5 most authoritative real-time sources
+- If I have provided any internal files or documents, merge that context with your web findings
+- Use your full context window capacity to ingest complete PDFs and documents, not just snippets
+- Cross-reference findings between web sources and any provided internal data
+
+### Step 3: Synthesis Requirements
+- Create a unified analysis that bridges web research with internal context (if provided)
+- Highlight any discrepancies between internal data and external sources
+- Provide date-stamped citations for all real-time data
+
+### Research Query:
+${rawPrompt}
+
+### Additional Context Integration:
+[If you have internal files to reference, describe them here before proceeding]
+
+### Deliverable Format:
+1. Research Plan Summary
+2. Source Matrix (internal vs. external)
+3. Integrated Findings
+4. Confidence Assessment per Finding
+5. Recommended Follow-up Queries`;
+                }
+            },
+            claude: {
+                name: "Claude 4.5",
+                archetype: "The Collaborative Artisan",
+                transform: (rawPrompt) => {
+                    return `<instructions>
+You are conducting deep research analysis. Follow these precise guidelines:
+
+1. STRUCTURE: Provide a well-organized, structured analysis with clear sections and logical flow.
+
+2. INTELLECTUAL HONESTY: If the evidence contradicts any premise I may have stated or implied, highlight this immediately and prominently. Do not soften contradictory findings to avoid disagreement.
+
+3. CITATION STANDARD: Use APA 7th edition citation format for all sources. Include:
+   - In-text citations with author and year
+   - Full reference list at the end
+   - DOI or URL for digital sources where available
+
+4. CRITICAL ANALYSIS: For each major claim or finding:
+   - Assess the strength of supporting evidence
+   - Note any limitations in the available data
+   - Identify potential biases in sources
+
+5. PROSE QUALITY: Write in clear, precise academic prose. Avoid hedging language unless genuinely uncertain. Be direct in your assessments.
+
+6. UNCERTAINTY ACKNOWLEDGMENT: Clearly distinguish between:
+   - Well-established findings (strong evidence)
+   - Emerging consensus (moderate evidence)
+   - Contested or uncertain areas (limited/conflicting evidence)
+</instructions>
+
+<context>
+This is a deep research request requiring comprehensive analysis and rigorous source evaluation. The user values accuracy over agreement and expects honest assessment even if findings challenge initial assumptions.
+</context>
+
+<query>
+${rawPrompt}
+</query>
+
+<output_format>
+Please structure your response as follows:
+1. Executive Summary (2-3 paragraphs)
+2. Methodology Overview
+3. Key Findings (organized thematically)
+4. Critical Analysis & Limitations
+5. Conclusions & Implications
+6. References (APA format)
+</output_format>`;
+                }
+            },
+            deepseek: {
+                name: "DeepSeek R1",
+                archetype: "The Logic Auditor",
+                transform: (rawPrompt) => {
+                    return `## First-Principles Deep Research Analysis
+
+### Reasoning Protocol
+Use first-principles reasoning throughout this research task. This means:
+1. Break down complex claims into their fundamental components
+2. Question underlying assumptions at each level
+3. Build conclusions from verified base truths upward
+
+### Thought Trace Requirement
+Show your complete thought trace for this research. For each major finding or conclusion, I need to see:
+- The raw information encountered
+- Your reasoning process in evaluating it
+- How you connected it to other pieces of evidence
+- Any assumptions you made and why
+
+### Quantitative Verification Mandate
+For ALL numerical data, statistics, or quantitative claims:
+1. Identify the original source of the number
+2. Cross-verify against at least one independent dataset or source
+3. Flag any numbers that cannot be independently verified
+4. Note the date of the data and any temporal limitations
+5. Calculate confidence intervals or ranges where applicable
+
+### Hallucination Prevention Protocol
+- If you're uncertain about a fact, explicitly state "UNVERIFIED"
+- Never interpolate or estimate numbers without clearly marking them as estimates
+- When sources conflict on quantitative data, present all figures with their sources
+
+### Research Query:
+${rawPrompt}
+
+### Required Output Structure:
+1. **Foundational Assumptions**: List the base assumptions underlying this research area
+2. **Thought Trace Log**: Your complete reasoning process
+3. **Findings Matrix**: Each finding with verification status
+4. **Quantitative Data Table**: All numbers with sources and verification status
+5. **Logical Consistency Check**: Analysis of whether findings form a coherent picture
+6. **Confidence Assessment**: Per-finding confidence with reasoning`;
+                }
+            },
+            qwen: {
+                name: "Qwen DeepResearch",
+                archetype: "The Volume Heavyweight",
+                transform: (rawPrompt) => {
+                    return `/think Activate Advanced Research Mode.
+
+## Comprehensive Deep Research Request
+
+### Generation Parameters:
+- Target Length: 5,000+ words minimum
+- Maintain Temperature 0.6 for balanced creativity and accuracy
+- Avoid repetitive patterns or circular reasoning
+- Enable exhaustive coverage mode
+
+### Research Query:
+${rawPrompt}
+
+### Scope Requirements:
+Provide EXHAUSTIVE coverage including:
+1. Historical context and evolution of the topic
+2. Current state analysis with multiple perspectives
+3. Key players, stakeholders, and their positions
+4. Technical/methodological deep-dive where applicable
+5. Regional/geographic variations if relevant
+6. Future projections and emerging trends
+7. Contrarian viewpoints and minority opinions
+8. Practical implications and applications
+
+### Multi-Format Output Request:
+Please provide the following deliverables:
+
+**Deliverable 1: Comprehensive Research Report** (4,000+ words)
+- Full academic-style analysis
+- Extensive citations and references
+- Data tables and comparisons where applicable
+
+**Deliverable 2: Executive Briefing** (500 words)
+- Key takeaways for decision-makers
+- Critical insights highlighted
+- Action-oriented conclusions
+
+**Deliverable 3: Research Podcast Script Summary** (500 words)
+- Conversational format suitable for audio presentation
+- Engaging narrative structure
+- Key quotes and soundbites highlighted
+- Suggested discussion questions
+
+### Quality Controls:
+- Cross-reference major claims across multiple source types
+- Include publication dates for all time-sensitive information
+- Note confidence levels for projections and forecasts
+- Flag areas requiring further research`;
+                }
+            }
+        };
+
+        // Active models state
+        let activeModels = new Set(['openai', 'gemini', 'claude', 'deepseek', 'qwen']);
+
+        // Toggle model selection
+        function toggleModel(button) {
+            const model = button.dataset.model;
+            if (activeModels.has(model)) {
+                if (activeModels.size > 1) {
+                    activeModels.delete(model);
+                    button.classList.remove('active');
+                }
+            } else {
+                activeModels.add(model);
+                button.classList.add('active');
+            }
+            updateTabVisibility();
+        }
+
+        // Update tab visibility based on selected models
+        function updateTabVisibility() {
+            const tabs = document.querySelectorAll('.tab');
+            let firstVisibleTab = null;
+
+            tabs.forEach(tab => {
+                const model = tab.dataset.model;
+                if (activeModels.has(model)) {
+                    tab.style.display = 'block';
+                    if (!firstVisibleTab) firstVisibleTab = model;
+                } else {
+                    tab.style.display = 'none';
+                    tab.classList.remove('active');
+                    document.getElementById(`content-${model}`).classList.remove('active');
+                }
+            });
+
+            // Ensure at least one tab is active
+            const hasActiveTab = document.querySelector('.tab.active:not([style*="display: none"])');
+            if (!hasActiveTab && firstVisibleTab) {
+                switchTab(firstVisibleTab);
+            }
+        }
+
+        // Switch between tabs
+        function switchTab(model) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`.tab[data-model="${model}"]`).classList.add('active');
+
+            // Update content panels
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`content-${model}`).classList.add('active');
+        }
+
+        // Generate optimized prompts
+        function generatePrompts() {
+            const rawPrompt = document.getElementById('rawPrompt').value.trim();
+
+            if (!rawPrompt) {
+                alert('Please enter a research prompt first.');
+                return;
+            }
+
+            // Generate prompts for all active models
+            activeModels.forEach(model => {
+                const output = document.getElementById(`output-${model}`);
+                output.textContent = adapters[model].transform(rawPrompt);
+            });
+
+            // Clear outputs for inactive models
+            Object.keys(adapters).forEach(model => {
+                if (!activeModels.has(model)) {
+                    document.getElementById(`output-${model}`).textContent = '';
+                }
+            });
+
+            // Switch to first active tab
+            const firstActive = Array.from(activeModels)[0];
+            if (firstActive) {
+                switchTab(firstActive);
+            }
+        }
+
+        // Copy to clipboard functionality
+        async function copyToClipboard(model) {
+            const output = document.getElementById(`output-${model}`);
+            const button = output.parentElement.querySelector('.copy-btn');
+
+            if (!output.textContent) {
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(output.textContent);
+
+                // Visual feedback
+                const originalContent = button.innerHTML;
+                button.classList.add('copied');
+                button.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Copied!
+                `;
+
+                setTimeout(() => {
+                    button.classList.remove('copied');
+                    button.innerHTML = originalContent;
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = output.textContent;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+        }
+
+        // Keyboard shortcut for generate
+        document.getElementById('rawPrompt').addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                generatePrompts();
+            }
+        });
+
+        // Initialize tab visibility
+        updateTabVisibility();
+    </script>
+</body>
+</html>
