@@ -279,6 +279,61 @@
             font-style: italic;
         }
 
+        .prompt-output.loading::before {
+            content: "";
+        }
+
+        .prompt-output.loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+        }
+
+        .prompt-output.error {
+            color: #ef4444;
+            border-color: #ef4444;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: #60a5fa;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .api-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-left: auto;
+        }
+
+        .api-status .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success-color);
+        }
+
+        .api-status .dot.error {
+            background: #ef4444;
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .transformation-note {
             margin-top: 1rem;
             padding: 0.75rem 1rem;
@@ -342,7 +397,11 @@
             <label for="rawPrompt">Raw Research Prompt</label>
             <textarea id="rawPrompt" placeholder="Enter your research intent here, e.g., 'Find the latest market trends for solid-state batteries' or 'Analyze the current state of quantum computing applications in drug discovery'"></textarea>
             <div class="controls">
-                <button class="generate-btn" onclick="generatePrompts()">Generate Optimized Prompts</button>
+                <button class="generate-btn" id="generateBtn" onclick="generatePrompts()">Generate Optimized Prompts</button>
+                <div class="api-status" id="apiStatus">
+                    <span class="dot"></span>
+                    <span>Gemini API Ready</span>
+                </div>
                 <div class="model-toggles">
                     <span>Target:</span>
                     <button class="toggle-btn active" data-model="openai" onclick="toggleModel(this)">OpenAI</button>
@@ -475,236 +534,182 @@
     </div>
 
     <script>
-        // Model adapter configurations
-        const adapters = {
+        // ============================================================
+        // GEMINI API CONFIGURATION
+        // ============================================================
+        // Replace with your Gemini API key
+        const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
+
+        // Gemini API endpoint for gemini-2.5-pro
+        const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent';
+
+        // ============================================================
+        // MODEL CONFIGURATIONS
+        // ============================================================
+        const modelConfigs = {
             openai: {
                 name: "OpenAI o3-DR",
                 archetype: "The PhD Candidate",
-                transform: (rawPrompt) => {
-                    return `## Research Task
+                focus: "Reasoning Depth",
+                instructions: `Transform the user's raw research prompt into an optimized prompt for OpenAI's o3-DR model (Deep Research mode).
 
-Before beginning your search, I need you to follow a structured deep-research protocol.
+Key transformation principles for OpenAI o3-DR:
+1. RECURSIVE LOGIC: Force decomposition into sub-questions and research trees
+2. PRIMARY SOURCE PRIORITIZATION: Mandate verification of primary data sources
+3. LOGIC CHAIN REQUIREMENT: Require explicit reasoning chains
+4. CONFLICT RESOLUTION: Include protocols for handling contradictory information
 
-### Phase 1: Research Tree Construction
-Outline your complete research tree before searching. Decompose the following query into:
-1. Primary research questions (3-5 core questions)
-2. Secondary sub-questions branching from each primary question
-3. Tertiary verification questions for critical claims
-
-### Phase 2: Source Hierarchy Protocol
-When gathering information:
-- Prioritize primary sources (original research papers, official reports, first-hand data)
-- If you encounter an aggregator source, trace back to and verify the primary data source
-- Flag any source that cannot be traced to primary data
-- Use recursive decomposition to resolve conflicting data points between sources
-
-### Phase 3: Conflict Resolution
-For any contradictory information found:
-- Document both positions with their respective sources
-- Apply logical analysis to determine which has stronger evidentiary support
-- If unresolvable, present both with confidence assessments
-
-### Research Query:
-${rawPrompt}
-
-### Output Requirements:
-- Begin with your research tree structure
-- Present findings organized by primary question
-- Include a "Source Verification Log" section
-- Conclude with confidence ratings for each major finding`;
-                }
+The output prompt should:
+- Begin with a structured research protocol
+- Include phases for: Research Tree Construction, Source Hierarchy Protocol, Conflict Resolution
+- Require the model to outline its research tree BEFORE searching
+- Mandate that aggregator sources be traced to primary data
+- Include output requirements for source verification logs and confidence ratings
+- Use markdown formatting with clear headers and bullet points`
             },
             gemini: {
                 name: "Gemini 3.0",
                 archetype: "The Ecosystem Integrator",
-                transform: (rawPrompt) => {
-                    return `## Deep Research Request with Glass-Box Control
+                focus: "Data Merging",
+                instructions: `Transform the user's raw research prompt into an optimized prompt for Google Gemini 3.0's Deep Research capabilities.
 
-### Step 1: Research Plan (PAUSE FOR CONFIRMATION)
-Before executing any searches, draft a comprehensive research plan that includes:
-- Key search queries you intend to use
-- Types of sources you'll prioritize
-- Potential data gaps you anticipate
-- Timeline scope for the research
+Key transformation principles for Gemini 3.0:
+1. GLASS-BOX CONTROL: Enable transparent, step-by-step research planning
+2. PAUSE-FOR-REVIEW FLAGS: Include explicit pause points for user confirmation
+3. MULTI-SOURCE INTEGRATION: Link web search with internal file/workspace context
+4. 1M TOKEN WINDOW UTILIZATION: Encourage ingesting full documents, not snippets
 
-**[PAUSE HERE - Wait for my confirmation before proceeding to Step 2]**
-
-### Step 2: Multi-Source Integration Protocol
-Once confirmed, execute the research with these parameters:
-- Conduct searches across the top 5 most authoritative real-time sources
-- If I have provided any internal files or documents, merge that context with your web findings
-- Use your full context window capacity to ingest complete PDFs and documents, not just snippets
-- Cross-reference findings between web sources and any provided internal data
-
-### Step 3: Synthesis Requirements
-- Create a unified analysis that bridges web research with internal context (if provided)
-- Highlight any discrepancies between internal data and external sources
-- Provide date-stamped citations for all real-time data
-
-### Research Query:
-${rawPrompt}
-
-### Additional Context Integration:
-[If you have internal files to reference, describe them here before proceeding]
-
-### Deliverable Format:
-1. Research Plan Summary
-2. Source Matrix (internal vs. external)
-3. Integrated Findings
-4. Confidence Assessment per Finding
-5. Recommended Follow-up Queries`;
-                }
+The output prompt should:
+- Start with "Draft a research plan first and pause for confirmation"
+- Include numbered steps with explicit PAUSE instructions
+- Reference potential internal files/documents integration
+- Emphasize using full context window for complete PDF ingestion
+- Include a source matrix (internal vs external) in deliverables
+- Request date-stamped citations for real-time data
+- Use clear step-by-step formatting`
             },
             claude: {
                 name: "Claude 4.5",
                 archetype: "The Collaborative Artisan",
-                transform: (rawPrompt) => {
-                    return `<instructions>
-You are conducting deep research analysis. Follow these precise guidelines:
+                focus: "Precision & Style",
+                instructions: `Transform the user's raw research prompt into an optimized prompt for Anthropic Claude 4.5.
 
-1. STRUCTURE: Provide a well-organized, structured analysis with clear sections and logical flow.
+Key transformation principles for Claude 4.5:
+1. XML STRUCTURAL TAGS: Wrap content in semantic tags like <instructions>, <context>, <query>, <output_format>
+2. ANTI-SYCOPHANCY: Explicitly instruct to highlight contradictory evidence
+3. CITATION FIDELITY: Mandate APA 7th edition format
+4. PROSE QUALITY: Emphasize clear, precise academic prose
 
-2. INTELLECTUAL HONESTY: If the evidence contradicts any premise I may have stated or implied, highlight this immediately and prominently. Do not soften contradictory findings to avoid disagreement.
-
-3. CITATION STANDARD: Use APA 7th edition citation format for all sources. Include:
-   - In-text citations with author and year
-   - Full reference list at the end
-   - DOI or URL for digital sources where available
-
-4. CRITICAL ANALYSIS: For each major claim or finding:
-   - Assess the strength of supporting evidence
-   - Note any limitations in the available data
-   - Identify potential biases in sources
-
-5. PROSE QUALITY: Write in clear, precise academic prose. Avoid hedging language unless genuinely uncertain. Be direct in your assessments.
-
-6. UNCERTAINTY ACKNOWLEDGMENT: Clearly distinguish between:
-   - Well-established findings (strong evidence)
-   - Emerging consensus (moderate evidence)
-   - Contested or uncertain areas (limited/conflicting evidence)
-</instructions>
-
-<context>
-This is a deep research request requiring comprehensive analysis and rigorous source evaluation. The user values accuracy over agreement and expects honest assessment even if findings challenge initial assumptions.
-</context>
-
-<query>
-${rawPrompt}
-</query>
-
-<output_format>
-Please structure your response as follows:
-1. Executive Summary (2-3 paragraphs)
-2. Methodology Overview
-3. Key Findings (organized thematically)
-4. Critical Analysis & Limitations
-5. Conclusions & Implications
-6. References (APA format)
-</output_format>`;
-                }
+The output prompt should:
+- Use XML tags to structure the prompt (<instructions>, <context>, <query>, <output_format>)
+- Include explicit instruction: "If evidence contradicts my premise, highlight it immediately"
+- Specify APA citation requirements
+- Request distinction between well-established, emerging, and contested findings
+- Include structured output format with Executive Summary, Methodology, Key Findings, etc.
+- Maintain formal but clear tone`
             },
             deepseek: {
                 name: "DeepSeek R1",
                 archetype: "The Logic Auditor",
-                transform: (rawPrompt) => {
-                    return `## First-Principles Deep Research Analysis
+                focus: "Mathematical/Logical Audit",
+                instructions: `Transform the user's raw research prompt into an optimized prompt for DeepSeek R1.
 
-### Reasoning Protocol
-Use first-principles reasoning throughout this research task. This means:
-1. Break down complex claims into their fundamental components
-2. Question underlying assumptions at each level
-3. Build conclusions from verified base truths upward
+Key transformation principles for DeepSeek R1:
+1. FIRST-PRINCIPLES REASONING: Trigger Chain-of-Thought from base truths
+2. THOUGHT TRACE REQUIREMENT: Demand visible internal monologue/reasoning
+3. QUANTITATIVE VERIFICATION: Mandate cross-verification of ALL numerical data
+4. HALLUCINATION PREVENTION: Include explicit protocols to prevent reasoning errors
 
-### Thought Trace Requirement
-Show your complete thought trace for this research. For each major finding or conclusion, I need to see:
-- The raw information encountered
-- Your reasoning process in evaluating it
-- How you connected it to other pieces of evidence
-- Any assumptions you made and why
-
-### Quantitative Verification Mandate
-For ALL numerical data, statistics, or quantitative claims:
-1. Identify the original source of the number
-2. Cross-verify against at least one independent dataset or source
-3. Flag any numbers that cannot be independently verified
-4. Note the date of the data and any temporal limitations
-5. Calculate confidence intervals or ranges where applicable
-
-### Hallucination Prevention Protocol
-- If you're uncertain about a fact, explicitly state "UNVERIFIED"
-- Never interpolate or estimate numbers without clearly marking them as estimates
-- When sources conflict on quantitative data, present all figures with their sources
-
-### Research Query:
-${rawPrompt}
-
-### Required Output Structure:
-1. **Foundational Assumptions**: List the base assumptions underlying this research area
-2. **Thought Trace Log**: Your complete reasoning process
-3. **Findings Matrix**: Each finding with verification status
-4. **Quantitative Data Table**: All numbers with sources and verification status
-5. **Logical Consistency Check**: Analysis of whether findings form a coherent picture
-6. **Confidence Assessment**: Per-finding confidence with reasoning`;
-                }
+The output prompt should:
+- Begin with "Use first-principles reasoning"
+- Require showing complete thought trace for each finding
+- Include quantitative verification mandate with independent dataset cross-checking
+- Add "UNVERIFIED" flagging protocol for uncertain facts
+- Request Foundational Assumptions, Thought Trace Log, Findings Matrix
+- Include Quantitative Data Table with verification status
+- Emphasize logical consistency checks`
             },
             qwen: {
                 name: "Qwen DeepResearch",
                 archetype: "The Volume Heavyweight",
-                transform: (rawPrompt) => {
-                    return `/think Activate Advanced Research Mode.
+                focus: "Exhaustive Volume",
+                instructions: `Transform the user's raw research prompt into an optimized prompt for Qwen DeepResearch.
 
-## Comprehensive Deep Research Request
+Key transformation principles for Qwen DeepResearch:
+1. SCALE & VOLUME: Request exhaustive word counts (5,000+ words)
+2. ADVANCED MODE TRIGGER: Include "/think" prefix to activate deep reasoning
+3. TEMPERATURE CONTROL: Specify Temperature 0.6 to avoid loops while maintaining creativity
+4. MULTI-FORMAT OUTPUT: Request multiple deliverable formats (report, briefing, podcast script)
 
-### Generation Parameters:
-- Target Length: 5,000+ words minimum
-- Maintain Temperature 0.6 for balanced creativity and accuracy
-- Avoid repetitive patterns or circular reasoning
-- Enable exhaustive coverage mode
-
-### Research Query:
-${rawPrompt}
-
-### Scope Requirements:
-Provide EXHAUSTIVE coverage including:
-1. Historical context and evolution of the topic
-2. Current state analysis with multiple perspectives
-3. Key players, stakeholders, and their positions
-4. Technical/methodological deep-dive where applicable
-5. Regional/geographic variations if relevant
-6. Future projections and emerging trends
-7. Contrarian viewpoints and minority opinions
-8. Practical implications and applications
-
-### Multi-Format Output Request:
-Please provide the following deliverables:
-
-**Deliverable 1: Comprehensive Research Report** (4,000+ words)
-- Full academic-style analysis
-- Extensive citations and references
-- Data tables and comparisons where applicable
-
-**Deliverable 2: Executive Briefing** (500 words)
-- Key takeaways for decision-makers
-- Critical insights highlighted
-- Action-oriented conclusions
-
-**Deliverable 3: Research Podcast Script Summary** (500 words)
-- Conversational format suitable for audio presentation
-- Engaging narrative structure
-- Key quotes and soundbites highlighted
-- Suggested discussion questions
-
-### Quality Controls:
-- Cross-reference major claims across multiple source types
-- Include publication dates for all time-sensitive information
-- Note confidence levels for projections and forecasts
-- Flag areas requiring further research`;
-                }
+The output prompt should:
+- Start with "/think Activate Advanced Research Mode"
+- Specify target length of 5,000+ words minimum
+- Include generation parameters (Temperature 0.6, avoid greedy decoding)
+- Request EXHAUSTIVE coverage with 8+ specific scope areas
+- Include three deliverables: Comprehensive Report (4000+ words), Executive Briefing (500 words), Podcast Script Summary (500 words)
+- Add quality controls for cross-referencing and confidence levels`
             }
         };
 
         // Active models state
         let activeModels = new Set(['openai', 'gemini', 'claude', 'deepseek', 'qwen']);
+        let isGenerating = false;
+
+        // ============================================================
+        // GEMINI API CALL
+        // ============================================================
+        async function callGeminiAPI(rawPrompt, modelKey) {
+            const config = modelConfigs[modelKey];
+
+            const systemPrompt = `You are an expert prompt engineer specializing in optimizing research prompts for different AI models. Your task is to transform a raw research intent into a highly optimized prompt specifically designed for ${config.name}.
+
+${config.instructions}
+
+IMPORTANT RULES:
+1. Output ONLY the transformed prompt - no explanations, no preamble, no meta-commentary
+2. The output should be ready to copy-paste directly into ${config.name}
+3. Maintain the user's original research intent while adding model-specific optimizations
+4. Use appropriate formatting (markdown, XML tags, etc.) as specified in the instructions`;
+
+            const requestBody = {
+                contents: [{
+                    parts: [{
+                        text: `${systemPrompt}\n\n---\n\nRAW RESEARCH PROMPT TO TRANSFORM:\n${rawPrompt}`
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 4096,
+                }
+            };
+
+            const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || `API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+                return data.candidates[0].content.parts[0].text;
+            }
+
+            throw new Error('Unexpected API response format');
+        }
+
+        // ============================================================
+        // UI FUNCTIONS
+        // ============================================================
 
         // Toggle model selection
         function toggleModel(button) {
@@ -760,23 +765,73 @@ Please provide the following deliverables:
             document.getElementById(`content-${model}`).classList.add('active');
         }
 
-        // Generate optimized prompts
-        function generatePrompts() {
+        // Set loading state for output
+        function setLoadingState(model, isLoading) {
+            const output = document.getElementById(`output-${model}`);
+            if (isLoading) {
+                output.innerHTML = '<div class="spinner"></div>';
+                output.classList.add('loading');
+                output.classList.remove('error');
+            } else {
+                output.classList.remove('loading');
+            }
+        }
+
+        // Set error state for output
+        function setErrorState(model, errorMessage) {
+            const output = document.getElementById(`output-${model}`);
+            output.classList.remove('loading');
+            output.classList.add('error');
+            output.textContent = `Error: ${errorMessage}`;
+        }
+
+        // Update API status indicator
+        function updateApiStatus(isError, message) {
+            const statusEl = document.getElementById('apiStatus');
+            const dot = statusEl.querySelector('.dot');
+            const text = statusEl.querySelector('span:last-child');
+
+            if (isError) {
+                dot.classList.add('error');
+                text.textContent = message || 'API Error';
+            } else {
+                dot.classList.remove('error');
+                text.textContent = message || 'Gemini API Ready';
+            }
+        }
+
+        // ============================================================
+        // MAIN GENERATION FUNCTION
+        // ============================================================
+        async function generatePrompts() {
             const rawPrompt = document.getElementById('rawPrompt').value.trim();
+            const generateBtn = document.getElementById('generateBtn');
 
             if (!rawPrompt) {
                 alert('Please enter a research prompt first.');
                 return;
             }
 
-            // Generate prompts for all active models
+            if (GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+                alert('Please set your Gemini API key in the code.\n\nEdit the GEMINI_API_KEY variable at the top of the script section.');
+                return;
+            }
+
+            if (isGenerating) return;
+            isGenerating = true;
+
+            // Disable button and show loading
+            generateBtn.disabled = true;
+            generateBtn.textContent = 'Generating...';
+            updateApiStatus(false, 'Processing...');
+
+            // Set loading state for all active models
             activeModels.forEach(model => {
-                const output = document.getElementById(`output-${model}`);
-                output.textContent = adapters[model].transform(rawPrompt);
+                setLoadingState(model, true);
             });
 
             // Clear outputs for inactive models
-            Object.keys(adapters).forEach(model => {
+            Object.keys(modelConfigs).forEach(model => {
                 if (!activeModels.has(model)) {
                     document.getElementById(`output-${model}`).textContent = '';
                 }
@@ -787,14 +842,53 @@ Please provide the following deliverables:
             if (firstActive) {
                 switchTab(firstActive);
             }
+
+            // Generate prompts for all active models in parallel
+            const promises = Array.from(activeModels).map(async (model) => {
+                try {
+                    const result = await callGeminiAPI(rawPrompt, model);
+                    const output = document.getElementById(`output-${model}`);
+                    output.classList.remove('loading', 'error');
+                    output.textContent = result;
+                    return { model, success: true };
+                } catch (error) {
+                    console.error(`Error generating ${model} prompt:`, error);
+                    setErrorState(model, error.message);
+                    return { model, success: false, error: error.message };
+                }
+            });
+
+            const results = await Promise.all(promises);
+
+            // Check if any failed
+            const failures = results.filter(r => !r.success);
+            if (failures.length > 0) {
+                updateApiStatus(true, `${failures.length} error(s)`);
+            } else {
+                updateApiStatus(false, 'Complete');
+            }
+
+            // Re-enable button
+            generateBtn.disabled = false;
+            generateBtn.textContent = 'Generate Optimized Prompts';
+            isGenerating = false;
+
+            // Reset status after a delay
+            setTimeout(() => {
+                if (!isGenerating) {
+                    updateApiStatus(false, 'Gemini API Ready');
+                }
+            }, 3000);
         }
 
-        // Copy to clipboard functionality
+        // ============================================================
+        // COPY TO CLIPBOARD
+        // ============================================================
         async function copyToClipboard(model) {
             const output = document.getElementById(`output-${model}`);
             const button = output.parentElement.querySelector('.copy-btn');
 
-            if (!output.textContent) {
+            if (!output.textContent || output.classList.contains('loading')) {
                 return;
             }
 
@@ -827,6 +921,10 @@ Please provide the following deliverables:
             }
         }
 
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+
         // Keyboard shortcut for generate
         document.getElementById('rawPrompt').addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -836,6 +934,11 @@ Please provide the following deliverables:
 
         // Initialize tab visibility
         updateTabVisibility();
+
+        // Check if API key is set
+        if (GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+            updateApiStatus(true, 'API Key Required');
+        }
     </script>
 </body>
 </html>
